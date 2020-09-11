@@ -1,77 +1,107 @@
+require 'yaml'
 
 class Board
 
+  attr_accessor :used_letters, :current_board, :missed_count, :player_won, :iteration, :chosen_word
+
   def initialize(chosen_word)
-    print "\n"
-    puts "   Welcome to Hangman"
-    puts "(a violent spelling game)"
-    make_board()
-    @@iteration = 0
-    @@used_letters = Array.new
-    @@missed_count = 0
-    player_won = false
-    print "\n"
-    @@current_board = Array.new
+    @iteration = 0
+    @used_letters = Array.new
+    @missed_count = 0
+    @player_won = false
+    @current_board = Array.new
+    @chosen_word = chosen_word
+  end
+
+  def new_game()
     chosen_word.split('').each_with_index { |c, index|
-    @@current_board[index] = "_ "
-    print @@current_board[index]
+    @current_board[index] = "_ "
+    print @current_board[index]
     STDOUT.flush
   }
   print "\n"
   print "\n"
-  puts "Please guess a letter?"
   end
 
-  def make_board()
-    puts " _________"
-    puts "|         |"
-    puts "|         |"
-    puts "|          "
-    puts "|          "
-    puts "|          "
-    puts "|          "
-    puts "|__________"
+  def save_game?()
+    print "Are you sure you want to game and quit? (y/n) "
+    answer = gets.chomp.strip
+    if answer == "y"
+      save_game()
+      exit
+    elsif answer == "n"
+      return
+    else
+      put "Invalid answer."
+      save_game?
+    end
   end
 
-  def update_lines(chosen_word, guess, letter_used)
+  def save_game()
+    Dir.mkdir("saves") unless Dir.exists? "saves"
+    File.open("save_file", "w+") do |info|
+    Marshal.dump(self, info)
+    end
+    exit
+  end
+
+  def load_game()
+    object = nil
+    File.open("save_file") do |info|
+      object = Marshal.load(info)
+      puts "Guess your next letter"
+    end
+    self.iteration = object.iteration
+    self.used_letters = object.used_letters
+    self.missed_count = object.missed_count
+    self.player_won = object.player_won
+    self.current_board = object.current_board
+    self.chosen_word = object.chosen_word
+    puts "The old word is " + self.chosen_word.to_s
+    puts self.current_board.join(' ')
+    STDOUT.flush
+    print "\n"
+  end
+
+  def update_lines(guess, letter_used)
     guessed_right = false
     chosen_word.split('').each_with_index { |c, index|
     if guess.downcase() == c.downcase()
       guessed_right = true
-      @@current_board[index] = c
+      @current_board[index] = c
     end 
     }
     if guessed_right == false && letter_used == false
       add_body_part()
-      @@missed_count += 1
+      @missed_count += 1
     end
-    print @@current_board.join(" ")
+    print @current_board.join(" ")
     STDOUT.flush
     print "\n"
-    return @@missed_count
+    return @missed_count
   end
 
   def check_if_used(guess)
     letter_used = false
-    if @@used_letters.length == 0
-      @@used_letters[0] = guess
+    if @used_letters.length == 0
+      @used_letters[0] = guess
     else
-      if @@used_letters.include? guess
+      if @used_letters.include? guess
         puts "You already guessed that"
         letter_used = true
       else
-        @@used_letters.push(guess)
+        @used_letters.push(guess)
       end
     end
     print "\n"
     print "Used letters: "
-    print @@used_letters.sort
+    print @used_letters.sort
     print "\n"
     return letter_used
   end
 
    def add_body_part()
-    if @@iteration == 0
+    if @iteration == 0
       puts " _________"
       puts "|         |"
       puts "|         |"
@@ -83,7 +113,7 @@ class Board
 
       puts "6 turns left"
       print "\n"
-    elsif @@iteration == 1
+    elsif @iteration == 1
       puts " _________"
       puts "|         |"
       puts "|         |"
@@ -95,7 +125,7 @@ class Board
       
       puts "5 turns left"
 
-    elsif @@iteration == 2
+    elsif @iteration == 2
       puts " _________"
       puts "|         |"
       puts "|         |"
@@ -107,7 +137,7 @@ class Board
 
       puts "4 turns left"
 
-    elsif @@iteration == 3
+    elsif @iteration == 3
       puts " _________"
       puts "|         |"
       puts "|         |"
@@ -119,7 +149,7 @@ class Board
 
       puts "3 turns left"
 
-    elsif @@iteration == 4
+    elsif @iteration == 4
       puts " _________"
       puts "|         |"
       puts "|         |"
@@ -130,7 +160,7 @@ class Board
       puts "|__________"
 
       puts "2 turns left"
-    elsif @@iteration == 5
+    elsif @iteration == 5
       puts " _________"
       puts "|         |"
       puts "|         |"
@@ -151,21 +181,31 @@ class Board
       puts '|        / \ '
       puts "|__________"
    end
-   @@iteration += 1
+   @iteration += 1
   end
 
-  def check_if_player_won(chosen_word)
-    player_won = false
+  def check_if_player_won()
     split_word = chosen_word.split('')
-    if @@current_board.eql?(split_word)
-      player_won = true
+    if @current_board.eql?(split_word)
+      @player_won = true
     end
-    if player_won == true
+    if @player_won == true
       puts "You won"
       exit
     end
     #puts "I am chosen word: #{split_word}"
     #puts "I am current board: #{@@current_board}"
+  end
+
+
+  def check_if_player_lost(missed_count)
+  if missed_count == 7
+      print "\n"
+      puts "You lost"
+      puts "The answer was: #{chosen_word}"
+      print "\n"
+      exit
+    end
   end
 end
 
@@ -179,40 +219,75 @@ class Computer
       chosen_word = words.sample.chop
       length = chosen_word.length()
     end
-    #puts chosen_word
+    puts chosen_word
     return chosen_word
   end
+
+  
 end
+
 
 class Player
   def guess_letter()
-    guess = gets.chomp()
-    until guess.length == 1 || guess.count("a-zA-Z") == 1
-      guess = gets.chomp()
+    puts "Please guess a letter:"
+    puts "(type 'sq' to quit & save)"
+    guess = gets.chomp().strip()
+    until guess == 'sq' || (guess.length == 1 && guess.count("a-zA-Z") == 1)
+      guess = gets.chomp().strip
     end
     return guess
   end
 end
 
+class Game
 
-
-
-cmp1 = Computer.new
-chosen_word = cmp1.choose_word_from_dictionary()
-board1 = Board.new(chosen_word)
-player1 = Player.new
-player_won = board1.check_if_player_won(chosen_word)
-while player_won == nil
-  guess = player1.guess_letter()
-  letter_used = board1.check_if_used(guess)
-  missed_count = board1.update_lines(chosen_word, guess, letter_used)
-  player_won = board1.check_if_player_won(chosen_word)
-  if missed_count == 7
+  cmp1 = Computer.new
+  chosen_word = cmp1.choose_word_from_dictionary()
+  board1 = Board.new(chosen_word)
     print "\n"
-    puts "You lost"
-    puts "The answer was: #{chosen_word}"
-    print "\n"
-    exit
+    puts "   Welcome to Hangman"
+    puts "(a violent spelling game)"
+
+    puts " _________"
+    puts "|         |"
+    puts "|         |"
+    puts "|          "
+    puts "|          "
+    puts "|          "
+    puts "|          "
+    puts "|__________"
+    
+  if File.exists? "save_file"
+    start = 'nothing'
+    while start == 'nothing'
+      print "\n"
+      puts "Would you like to a \"new\" game or \"load\" a game?"
+      start = gets.chomp.strip
+      if start.include? 'load'
+        puts "Your last game was loaded"
+        board1.load_game
+      elsif start.include? 'new' 
+        start = 'go'
+        board1.new_game()
+      else
+       puts "Invalid entry"
+       start = 'nothing'
+      end
+    end
+  end
+    player_won = board1.check_if_player_won()
+    player1 = Player.new
+    while player_won == nil
+    guess = player1.guess_letter()
+    if guess == "sq"
+      board1.save_game?()
+    else
+    letter_used = board1.check_if_used(guess)
+    missed_count = board1.update_lines(guess, letter_used)
+    player_won = board1.check_if_player_won()
+    board1.check_if_player_lost(missed_count)
+    end
   end
 end
-puts "Got here "
+
+game = Game.new
